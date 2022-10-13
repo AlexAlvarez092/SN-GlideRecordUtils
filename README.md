@@ -17,7 +17,7 @@ Features included:
 
 # Installation
 
-- Option 1. Committing [update set](./releases/GlideRecorDUtils_100.xml)
+- Option 1. Committing [update set](./releases/GlideRecordUtils_100.xml)
 
 ## Technical solution
 
