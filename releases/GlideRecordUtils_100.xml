@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="UTF-8"?><unload unload_date="2022-10-13 20:11:08">
+<sys_remote_update_set action="INSERT_OR_UPDATE">
+<application display_value="Global">global</application>
+<application_name>Global</application_name>
+<application_scope>global</application_scope>
+<application_version/>
+<collisions/>
+<commit_date/>
+<deleted/>
+<description/>
+<inserted/>
+<name>GlideRecordUtils #0</name>
+<origin_sys_id/>
+<parent display_value=""/>
+<release_date/>
+<remote_base_update_set display_value=""/>
+<remote_parent_id/>
+<remote_sys_id>47c50c911b2211108ed86575624bcbe3</remote_sys_id>
+<state>loaded</state>
+<summary/>
+<sys_class_name>sys_remote_update_set</sys_class_name>
+<sys_created_by>admin</sys_created_by>
+<sys_created_on>2022-10-13 20:11:08</sys_created_on>
+<sys_id>db46ccdd1ba211108ed86575624bcb46</sys_id>
+<sys_mod_count>0</sys_mod_count>
+<sys_updated_by>admin</sys_updated_by>
+<sys_updated_on>2022-10-13 20:11:08</sys_updated_on>
+<update_set display_value=""/>
+<update_source display_value=""/>
+<updated/>
+</sys_remote_update_set>
+<sys_update_xml action="INSERT_OR_UPDATE">
+<action>INSERT_OR_UPDATE</action>
+<application display_value="Global">global</application>
+<category>customer</category>
+<comments/>
+<name>sys_script_include_8e0680111be211108ed86575624bcb81</name>
+<payload>&lt;?xml version="1.0" encoding="UTF-8"?&gt;&lt;record_update table="sys_script_include"&gt;&lt;sys_script_include action="INSERT_OR_UPDATE"&gt;&lt;access&gt;package_private&lt;/access&gt;&lt;active&gt;true&lt;/active&gt;&lt;api_name&gt;global.GlideRecordUtils&lt;/api_name&gt;&lt;caller_access/&gt;&lt;client_callable&gt;false&lt;/client_callable&gt;&lt;description&gt;Shared utilities for GlideRecord objects&lt;/description&gt;&lt;name&gt;GlideRecordUtils&lt;/name&gt;&lt;script&gt;&lt;![CDATA[var GlideRecordUtils = Class.create();
+GlideRecordUtils.prototype = {
+	
+	/*SNDOC
+	@name [CONSTRUCTOR] initialize
+	@description Class constructor. Initializes the logger and record parameters.
+    @param {String|Object} [record] - sys_id | number | GlideRecord
+	@param {String} [tableName] - (Optional) The name of the table of the record in hand. Only considered when the TABLE_NAME parameter is not defined for this class object.
+	*/
+    initialize: function(record, tableName /*optional*/) {
+        this.logger = new global.GSLog('', this.type);
+        this.logger.includeTimestamp();
+        this.logger.setLevel(gs.getProperty('scm.log.level.base'));
+
+        gs.include("j2js");
+		
+		// Set TABLE_NAME dynamically if it is empty.
+		if(gs.nil(this.TABLE_NAME)){
+			this._setTableNameAuto(record, tableName);
+		}
+		
+        this.record = this._getRecord(record, tableName);
+    },
+	
+    /**SNDOC
+    @name getRecord
+    @author Alex Alvarez
+    @description Get the instantiated record
+    @returns {GlideRecord} Record instantiated by the class
+    @example
+    new x_cm.ContractUtils('CCID-A00-000-001').getRecord();
+    */
+    getRecord: function() {
+        return this.record;
+    },
+
+    /**SNDOC
+    @name _getRecord
+    @author Alex Alvarez
+    @description Get a GlideRecord object given the sys_id, number or GlideRecord. **It fails for new records using API method .initialize() instead of .newRecord()
+    @param {String|Object} [record] - sys_id | number | GlideRecord
+    @returns {GlideRecord} Gliderecord object
+    @private
+    */
+    _getRecord: function(record) {
+        var grRecord = new GlideRecord(this.TABLE_NAME);
+
+        // sys_id
+        if (typeof(record) === 'string' &amp;&amp; record.length === 32) {
+            !grRecord.get(record) ? this._throwError(
+                gs.getMessage('scm.gliderecord_utils.error.record_not_found', [this.TABLE_NAME]),
+                400,
+                gs.getMessage('scm.gliderecord_utils.error.record_not_found.sys_id')
+            ) : undefined;
+            
+			return this._returnGlideRecord(grRecord);
+        }
+
+        // keys
+        else if (typeof(record) === 'string') {
+			
+			var keys = gs.getProperty('scm.gliderecordutils.keys', 'number,u_number');
+			
+			var keysArr = keys.split(',');
+			
+			//keysArr[0]
+			var fieldFound = false;
+			var qc = undefined;
+			keysArr.forEach(function(key) {
+				
+				//keysArr[0]
+				if (grRecord.isValidField(key) &amp;&amp; !fieldFound) {
+					fieldFound = true;
+					qc = grRecord.addQuery(key, record);
+				}
+				
+				//keysArr[1,n]
+				else if (grRecord.isValidField(key) &amp;&amp; fieldFound) {
+					qc.addOrCondition(key, record);
+				}
+			});
+			
+			/**
+			else {
+				this._throwError(
+                gs.getMessage('scm.gliderecord_utils.error.record_not_found', [this.TABLE_NAME]),
+                400,
+                gs.getMessage('scm.gliderecord_utils.error.record_not_found.number')
+				);
+			}
+			*/
+			grRecord.query();
+
+            !grRecord.next() ? this._throwError(
+                gs.getMessage('scm.gliderecord_utils.error.record_not_found', [this.TABLE_NAME]),
+                400,
+                gs.getMessage('scm.gliderecord_utils.error.record_not_found.number')
+            ) : undefined;
+
+            return this._returnGlideRecord(grRecord);
+        }
+
+        // GlideRecord
+        else if (typeof(record) === 'object' &amp;&amp; (record.isValidRecord() || record.isNewRecord())) {
+            return this._returnGlideRecord(record);
+        }
+
+        this._throwError(
+            gs.getMessage('scm.gliderecord_utils.error.record_not_found', [this.TABLE_NAME]),
+            400,
+            gs.getMessage('scm.gliderecord_utils.error.record_not_found.any')
+        );
+    },
+	
+	/**SNDOC
+    @name _setTableNameAuto
+    @author Ricardo Miranda
+    @description Sets the value of the parameter TABLE_NAME of this class object. There is an attempt to retrieve the table name dynamically when the value is not specified.
+    @example 
+		// The method _setTableNameAuto is called in the class constructor whenever the parameter TABLE_NAME is not defined. This is an example of such case.
+		new global.SCM_GlideRecordUtils('19c7df38cf1211108cd389f1eae8e1ad', 'x_cm_registration_container');
+	@private
+    */
+    _setTableNameAuto: function(record, tableName) {
+		if(!gs.nil(tableName)){
+			this.TABLE_NAME = tableName;
+		} else if(typeof(record) === 'object' &amp;&amp; (record.isValidRecord() || record.isNewRecord())){
+			this.TABLE_NAME = record.getRecordClassName();
+		} else {
+			this._throwError(gs.getMessage('scm.gliderecord_utils.error.table_name_undefined'), 400);
+		}
+    },
+
+	/**SNDOC
+	@name _returnGlideRecord
+	@author Alex Alvarez
+	@description Return a GlideRecord instantiated on the child class. It ensures that, for example, we don't return an incident instantiated on the task table
+	@param {GlideRecord} [record] - A ServiceNow GlideRecord
+	@returns {GlideRecord} A ServiceNow GlideRecord instantiated on the real table instead of a parent table
+	@private
+	*/
+    _returnGlideRecord: function(record) {
+        if (record.getRecordClassName() === this.TABLE_NAME) {
+            return record;
+        }
+
+        // extended tables
+        var hierarchy = this._getTableHierarchy(record);
+
+        if (hierarchy.indexOf(this.TABLE_NAME) &gt;= 0) {
+            var grExtended = new GlideRecord(record.getRecordClassName());
+            if (grExtended.get(record.getUniqueValue())) {
+                return grExtended;
+            }
+        }
+
+        this._throwError(
+            gs.getMessage('scm.gliderecord_utils.error.record_not_found', [this.TABLE_NAME]),
+            400,
+            gs.getMessage('scm.gliderecord_utils.error.record_not_found.gliderecord')
+        );
+    },
+
+    /**SNDOC
+    @name getChoiceOptions
+    @author Adrian Calvo
+    @description Return the choice options for a given pair of record + attribute
+    @param {GlideRecord} [record] - Table record
+    @param {String} [element] - Record attribute
+    @returns {Array&lt;Object&gt;} [{label: &lt;String&gt;, value:&lt;String&gt;, dependentValue:&lt;String&gt;}, {...}]
+    @example
+    var getChoiceOptions = new x_cm.ContractUtils('CCID-A00-000-001').getChoiceOptions('term_type');
+    */
+    getChoiceOptions: function(element) {
+        var choices = [];
+
+        var grChoices = new GlideRecord('sys_choice');
+        grChoices.addQuery('name', 'IN', this._getTableHierarchy(this.record)); //getRecordClassName
+        grChoices.addQuery('element', element);
+        grChoices.addQuery('language', 'en');
+        grChoices.addQuery('inactive', false);
+        grChoices.query();
+
+        while (grChoices.next()) {
+            var objChoice = {};
+            objChoice.label = grChoices.getValue('label');
+            objChoice.value = grChoices.getValue('value');
+            objChoice.dependentValue = grChoices.getValue('dependent_value');
+            choices.push(objChoice);
+        }
+        return choices;
+    },
+
+    /**SNDOC
+    @name isValidChoiceValue
+    @author Adrian Calvo
+    @description Check whether a choice-type attribute has a valid value.
+    @param {GlideRecord} [record] - GlideRecord to be checked
+    @param {String} [element] - GlideRecord attribute to be checked
+    @param {String} [dependentValue] - In case of having a dependent value, its contained on this variable
+    @returns {String} Error message, undefined if there is no error
+    @example
+    var isValidChoice = new x_cm.ContractUtils('CCID-A00-000-001').isValidChoiceValue('term_type');
+    */
+    isValidChoiceValue: function(element) {
+        var elementValue = this.record.getValue(element);
+        if (!elementValue) {
+            return;
+        }
+
+        var choiceOptions = this.getChoiceOptions(element);
+
+        var grDictionaryField = new GlideRecord('sys_dictionary');
+        grDictionaryField.addQuery('name', 'IN', this._getTableHierarchy(this.record));
+        grDictionaryField.addQuery('element', element);
+        grDictionaryField.setLimit(1);
+        grDictionaryField.query();
+
+        if (!grDictionaryField.next()) {
+            this._throwError('Internal error', 500, 'Table definition not found');
+        }
+
+        var dependentField = grDictionaryField.getValue('dependent_on_field');
+        var dependentValue = dependentField ? this.record.getValue(dependentField) : undefined;
+
+        var dependentFiltered = dependentValue ?
+            choiceOptions.filter(function(choice) {
+                return choice.dependentValue === dependentValue;
+            }) : choiceOptions;
+
+        var valueFiltered = dependentFiltered.filter(function(choice) {
+            return choice.value === elementValue;
+        });
+
+        if (valueFiltered.length === 0) {
+
+            var message = dependentField ?
+                gs.getMessage(
+                    'scm.gliderecord_utils.error.choice_field.invalid_value.dependent',
+                    [
+                        this.record.getDisplayValue(element),
+                        this.record.getElement(element).getLabel(),
+                        this.record.getElement(dependentField).getLabel(),
+                        this.record.getDisplayValue(dependentField)
+                    ]
+                ) :
+                gs.getMessage(
+                    'scm.gliderecord_utils.error.choice_field.invalid_value',
+                    [
+                        this.record.getDisplayValue(element),
+                        this.record.getElement(element).getLabel()
+                    ]
+                );
+
+            return message;
+        }
+        return '';
+    },
+	
+	/**SNDOC
+	@name getDisplayRefValue
+	@author Ricardo Miranda
+	@description Returns the display value of a field from a record referenced in the record in hand.
+	@param {String} [referenceFieldName] - Name of the field of type reference holding the reference to the record on which to retrieve the value from.
+	@param {String} [targetFieldName] - Name of the field in the referenced table from where to retrieve the display value.
+	@returns {String} The display value of the field specified as per the input arguments, under the base record for this class object.
+	@example 
+		// Retrieves the display value of the Status field in the Contract that is referenced in the field 'contract_reference' in the component in hand.
+		new x_cm.SCM_ComponentUtils("CMPN00001001").getDisplayRefValue("contract_reference", "status")
+	*/
+	getDisplayRefValue: function(referenceFieldName, targetFieldName){
+		var resultDisplayValue = "";
+		var refGr = this.record[referenceFieldName].getRefRecord();
+		if(refGr.isValidRecord()){
+			resultDisplayValue = refGr.getDisplayValue(targetFieldName);
+		}
+		return resultDisplayValue;
+	},
+
+	/**SNDOC
+	@name _getTableHierarchy
+	@author Alex Alvarez
+	@description Return an array including all the tables in the hierarchy for the instantiated record.
+	@param {type} [paramName] - description
+	@returns {Array&lt;String&gt;} For example: ["task", "incident"]
+	@private
+	*/
+    _getTableHierarchy: function(record) {
+        var hierarchy = new TableUtils(record.getRecordClassName()).getHierarchy();
+        return j2js(hierarchy);
+    },
+
+    /**SNDOC
+    @name _throwError
+    @author Alex Alvarez
+    @description Throw a new error and insert a new entry in system logs where the source is the name of the Script Include extending this one.
+    @param {String} [errorMessage] - Error message
+    @param {String} [errorCode] - Error code
+    @param {String} [errorDetail] - Error detail
+    @private
+    */
+    _throwError: function(errorMessage, errorCode, errorDetail) {
+        var message = errorMessage || 'Unknown error';
+        this.logger.logError(message);
+        var err = new Error(message);
+        err.code = errorCode || '';
+        err.detail = errorDetail || '';
+        throw err;
+    },
+
+    type: 'GlideRecordUtils'
+};]]&gt;&lt;/script&gt;&lt;sys_class_name&gt;sys_script_include&lt;/sys_class_name&gt;&lt;sys_created_by&gt;admin&lt;/sys_created_by&gt;&lt;sys_created_on&gt;2022-10-13 20:10:56&lt;/sys_created_on&gt;&lt;sys_id&gt;8e0680111be211108ed86575624bcb81&lt;/sys_id&gt;&lt;sys_mod_count&gt;0&lt;/sys_mod_count&gt;&lt;sys_name&gt;GlideRecordUtils&lt;/sys_name&gt;&lt;sys_package display_value="Global" source="global"&gt;global&lt;/sys_package&gt;&lt;sys_policy/&gt;&lt;sys_scope display_value="Global"&gt;global&lt;/sys_scope&gt;&lt;sys_update_name&gt;sys_script_include_8e0680111be211108ed86575624bcb81&lt;/sys_update_name&gt;&lt;sys_updated_by&gt;admin&lt;/sys_updated_by&gt;&lt;sys_updated_on&gt;2022-10-13 20:10:56&lt;/sys_updated_on&gt;&lt;/sys_script_include&gt;&lt;/record_update&gt;</payload>
+<payload_hash>-279310646</payload_hash>
+<remote_update_set display_value="GlideRecordUtils #0">db46ccdd1ba211108ed86575624bcb46</remote_update_set>
+<replace_on_upgrade>false</replace_on_upgrade>
+<sys_created_by>admin</sys_created_by>
+<sys_created_on>2022-10-13 20:11:08</sys_created_on>
+<sys_id>ef46ccdd1ba211108ed86575624bcb46</sys_id>
+<sys_mod_count>0</sys_mod_count>
+<sys_recorded_at>183d2f8b0880000001</sys_recorded_at>
+<sys_updated_by>admin</sys_updated_by>
+<sys_updated_on>2022-10-13 20:11:08</sys_updated_on>
+<table/>
+<target_name>GlideRecordUtils</target_name>
+<type>Script Include</type>
+<update_domain>global</update_domain>
+<update_guid>a846ccdd07a211106f7faee68a0e7e44</update_guid>
+<update_guid_history>a846ccdd07a211106f7faee68a0e7e44:-279310646</update_guid_history>
+<update_set display_value=""/>
+<view/>
+</sys_update_xml>
+</unload>
