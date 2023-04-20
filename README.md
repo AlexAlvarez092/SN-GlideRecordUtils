@@ -9,15 +9,11 @@ Basic script include containing general utilities for GlideRecord objects.
 
 # Features included
 
-- Get a record by sys_id, object, number or other attribute representing it (such as user_name for sys_user table) -- New attributes can be included to a system property
+- Get a GlideRecord by sys_id, object, number or other attribute representing it (such as user_name for sys_user table) -- New attributes can be included in the script include
+- Get an object with fields of your GlideRecord
 - Get the hierarchy of a given table
 - Get the choice options for a given field
 - Check if a value is allowed for a choice field
-
-# Documentation
-
-The script already include methods documentation in [SNDOC](https://developer.servicenow.com/connect.do#!/share/contents/6426327_sndoc?v=1.1&t=PRODUCT_DETAILS) format.
-You also can find documentation website generated with JSDoc in the [here](./jsdocs)
 
 
 [contributors-shield]: https://img.shields.io/github/contributors/AlexAlvarez092/SN-GlideRecordUtils.svg?style=for-the-badge
