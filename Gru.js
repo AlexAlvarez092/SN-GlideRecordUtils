@@ -19,15 +19,16 @@ Gru.getRecord = function (id, table) {
                     Apart from the listed fields, returned object always include the sys_id of the record.
     @param          {GlideRecord | String} [id] - Information known about the desired GlideRecord
     @param          {String} [table] - Database table name
-    @param          {Array<String>} [fields] - Fields you want the object to contain about your record
     @returns        {Object} Null if DO NOT EXISTS (for the given table or its hierarchy).
 */
-Gru.getObject = function (id, table, fields) {
+Gru.getObject = function (id, table) {
     var record = this._getRecord(id, table);
     if (!record) return null;
+    var fieldList = new GlideRecordUtil().getFields(record);
     return new GlideQuery(record.getTableName())
-        .where('sys_id', record.getUniqueValue())
-        .selectOne(fields.split(','));
+        .where('sys_id', id)
+        .selectOne(fieldList)
+        .get();
 };
 
 /**SNDOC
