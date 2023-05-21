@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>global.Gru</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <name>Gru</name>
+        <script><![CDATA[var Gru = Class.create();
+
+Gru.KEYS = ['number', 'u_number', 'user_name'];
+
+/**SNDOC
+    @name           getRecord
+    @description    Get a record identified by sys_id, number, or any other unique attribute
+    @param          {GlideRecord | String} [id] - Information known about the desired GlideRecord
+    @param          {String} [table] - Database table name
+    @returns        {GlideRecord} Null if DO NOT EXISTS (for the given table or its hierarchy).
+*/
+Gru.getRecord = function(id, table) {
+    return this._getRecord(id, table);
+};
+
+/**SNDOC
+    @name           getObject
+    @description    Get an object identified by sys_id, number, or any other unique attribute
+                    Apart from the listed fields, returned object always include the sys_id of the record.
+    @param          {GlideRecord | String} [id] - Information known about the desired GlideRecord
+    @param          {String} [table] - Database table name
+    @returns        {Object} Null if DO NOT EXISTS (for the given table or its hierarchy).
+*/
+Gru.getObject = function(id, table) {
+    var record = this._getRecord(id, table);
+    if (!record) return null;
+    var fieldList = new GlideRecordUtil().getFields(record);
+    return new GlideQuery(record.getTableName())
+        .where('sys_id', id)
+        .selectOne(fieldList)
+        .get();
+};
+
+/**SNDOC
+    @name           getChoiceOptions
+    @description    Return the choice options for a given pair of record + attribute
+    @param          {String} [table] - Table name
+    @param          {String} [element] - Table field
+    @param          {String} [language] - (Optional) Value language -- English by default
+    @returns        {Array<Object>} [{name: <String>, label: <String>, value:<String>, dependentValue:<String>}, {...}]
+*/
+Gru.getChoiceOptions = function(table, field, language) {
+    var choices = [];
+
+    var grChoices = new GlideRecord('sys_choice');
+    grChoices.addQuery('name', 'IN', Gru.getTableHierarchy(table)); //getRecordClassName
+    grChoices.addQuery('element', field);
+    grChoices.addQuery('language', language || 'en');
+    grChoices.addQuery('inactive', false);
+    grChoices.query();
+
+    while (grChoices.next()) {
+        choices.push({
+            table: grChoices.getValue('name'),
+            label: grChoices.getValue('label'),
+            value: grChoices.getValue('value'),
+            dependentValue: grChoices.getValue('dependent_value')
+        });
+    }
+
+    return choices;
+};
+
+/**SNDOC
+    @name           isValidChoiceOption
+    @description    Check whether a choice-type attribute has a valid value.
+    @param          {String} [table] - Table name
+    @param          {String} [element] - Table field
+    @param          {String} [value] - Field value
+    @returns        {Boolean} 
+*/
+Gru.isValidChoiceOption = function(table, element, value) {
+    ArrayPolyfill;
+    var options = Gru.getChoiceOptions(table, element);
+    return Boolean(options.find(function(option) {
+        return option.value == value;
+    }));
+};
+
+/**SNDOC
+    @name           getTableHierarchy
+    @description    Return an array including all the tables in the hierarchy for a given table
+    @param          {String} [table] - Database table name
+    @returns        {Array<String>} [<string>, ...]
+*/
+Gru.getTableHierarchy = function(table) {
+    gs.include("j2js");
+    var hierarchy = new TableUtils(table).getHierarchy();
+    return j2js(hierarchy);
+};
+
+/**SNDOC
+    @name           _getRecord
+    @description    Get a GlideRecord object given the sys_id, number or GlideRecord. **It fails for new records 
+                    using API method .initialize() instead of .newRecord()
+    @param          {String|Object} [record] - sys_id | number | GlideRecord
+    @param          {String} [tableName] - Database table name
+    @returns        {GlideRecord} Gliderecord object
+    @private
+*/
+Gru._getRecord = function(record, tableName) {
+    var grRecord = new GlideRecord(tableName);
+    grRecord.setLimit(1);
+
+    // sys_id
+    if (typeof(record) === 'string' && record.length === 32) {
+        if (!grRecord.get(record)) {
+            return null;
+        }
+        return Gru._returnGlideRecord(grRecord);
+    }
+
+    // keys
+    else if (typeof(record) === 'string') {
+        var fieldFound = false;
+        var qc;
+
+        Gru.KEYS.forEach(function(key) {
+            //keysArr[0]
+            if (grRecord.isValidField(key) && !fieldFound) {
+                fieldFound = true;
+                qc = grRecord.addQuery(key, record);
+            }
+
+            //keysArr[1,n]
+            else if (grRecord.isValidField(key) && fieldFound) {
+                qc.addOrCondition(key, record);
+            }
+        });
+
+        grRecord.query();
+
+        if (!grRecord.next()) {
+            return null;
+        }
+
+        return Gru._returnGlideRecord(grRecord);
+    }
+
+    // GlideRecord
+    else if (record instanceof GlideRecord) {
+        return Gru._returnGlideRecord(record);
+    }
+
+    return undefined;
+};
+
+/**SNDOC
+    @name           _returnGlideRecord
+    @description    Return a GlideRecord instantiated on the child class. It ensures that, for example, 
+                    we don't return an incident instantiated on the task table
+    @param          {GlideRecord} [grRecord] - Object instance of GlideRecord
+    @returns        {GlideRecord} Object instance of GlideRecord instantiated in the child class
+    @private
+*/
+Gru._returnGlideRecord = function(grRecord) {
+    if (grRecord.getRecordClassName() !== grRecord.getTableName() && !grRecord.isNewRecord()) {
+        var extRecord = new GlideRecord(grRecord.getRecordClassName());
+        extRecord.get(grRecord.getUniqueValue());
+        return extRecord;
+    }
+
+    return grRecord;
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-05-21 17:15:02</sys_created_on>
+        <sys_id>c1bb108c4707611008606241e36d43bb</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Gru</sys_name>
+        <sys_package display_value="GlideRecordUtils" source="a1abd80c4707611008606241e36d43b4">a1abd80c4707611008606241e36d43b4</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="GlideRecordUtils">a1abd80c4707611008606241e36d43b4</sys_scope>
+        <sys_update_name>sys_script_include_c1bb108c4707611008606241e36d43bb</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-05-21 17:15:02</sys_updated_on>
+    </sys_script_include>
+</record_update>
